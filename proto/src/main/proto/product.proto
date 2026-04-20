@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.beanannotation";
+
+message Product {
+  int64 id = 1;
+  string name = 2;
+  double price = 3;
+}
+
+message ProductRequest {
+  int64 id = 1;
+}
+
+message ProductListRequest {
+  string keyword = 1;
+}
+
+message ProductResponse {
+  Product product = 1;
+}
+
+message ProductListResponse {
+  Product product = 1;
+}
+
+message UploadSummary {
+  int32 count = 1;
+}
+
+service ProductService {
+
+  // 1. Unary RPC (1 request - 1 response)
+  rpc GetProduct(ProductRequest) returns (ProductResponse);
+
+  // 2. Server Streaming (1 request - nhiều response)
+  rpc ListProducts(ProductListRequest) returns (stream ProductListResponse);
+
+  // 3. Client Streaming (nhiều request - 1 response)
+  rpc UploadProducts(stream Product) returns (UploadSummary);
+
+  // 4. Bidirectional Streaming (nhiều request - nhiều response)
+  rpc ChatProducts(stream ProductRequest) returns (stream ProductResponse);
+}
