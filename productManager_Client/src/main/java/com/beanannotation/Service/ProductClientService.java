@@ -12,12 +12,7 @@ import java.util.Map;
 public class ProductClientService {
     @GrpcClient("local-grpc-server")
     private ProductServiceGrpc.ProductServiceBlockingStub synchronousProduct;
-//    public Map<Descriptors.FieldDescriptor, Object> getProductById(int productId) {
-//        ProductRequest productRequest = ProductRequest.newBuilder().setId(productId).build();
-//        ProductResponse productResponse = synchronousProduct.getProduct(productRequest);
-//
-//        return productResponse.getAllFields();
-//    }
+
 public ProductDto getProductById(int productId) {
     ProductRequest productRequest = ProductRequest.newBuilder()
             .setId(productId)
