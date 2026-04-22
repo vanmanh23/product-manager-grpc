@@ -1,6 +1,9 @@
-package com.beanannotation.srpc.server.service;
+package com.beanannotation.service;
 
-import com.beanannotation.*;
+import com.beanannotation.Product;
+import com.beanannotation.ProductRequest;
+import com.beanannotation.ProductResponse;
+import com.beanannotation.ProductServiceGrpc;
 import io.grpc.stub.StreamObserver;
 import net.devh.boot.grpc.server.service.GrpcService;
 

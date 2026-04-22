@@ -1,4 +1,4 @@
-package com.beanannotation.srpc.server.service;
+package com.beanannotation.service;
 
 import com.beanannotation.Product;
 

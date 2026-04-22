@@ -1,0 +1,11 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: local-grpc-client
+
+grpc:
+  client:
+    local-grpc-server:
+      address: static://localhost:9000
+      negotiationType: plaintext
