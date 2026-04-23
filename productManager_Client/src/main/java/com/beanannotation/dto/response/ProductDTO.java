@@ -4,9 +4,8 @@ package com.beanannotation.dto.response;
 import lombok.Data;
 
 @Data
-public class ProductDto {
-    private long id;
+public class ProductDTO {
+    private Long id;
     private String name;
-    private double price;
-
+    private Double price;
 }
