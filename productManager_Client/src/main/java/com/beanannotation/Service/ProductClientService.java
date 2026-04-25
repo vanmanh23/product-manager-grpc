@@ -2,14 +2,13 @@ package com.beanannotation.Service;
 
 import com.beanannotation.*;
 import com.beanannotation.dto.request.ProductItemDTO;
-import com.beanannotation.dto.response.ChatResponseDTO;
 import com.beanannotation.dto.response.ProductDTO;
 import com.beanannotation.dto.response.ProductResponseDTO;
 import com.beanannotation.dto.response.UploadResponseDTO;
-import com.google.gson.Gson;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
+import lombok.extern.log4j.Log4j2;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.stereotype.Service;
 
@@ -17,31 +16,31 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
+@Log4j2
 public class ProductClientService {
     @GrpcClient("local-grpc-server")
     private ProductServiceGrpc.ProductServiceBlockingStub synchronousProduct;
     @GrpcClient("local-grpc-server")
     private ProductServiceGrpc.ProductServiceStub asyncStub;
+    public ProductDTO getProductById(int productId) {
+        ProductRequest productRequest = ProductRequest.newBuilder()
+                .setId(productId)
+                .build();
 
-    private Gson gson;
+        ProductResponse productResponse = synchronousProduct.getProduct(productRequest);
+        Product product = productResponse.getProduct();
 
-public ProductDTO getProductById(int productId) {
-    ProductRequest productRequest = ProductRequest.newBuilder()
-            .setId(productId)
-            .build();
+        ProductDTO dto = new ProductDTO();
+        dto.setId(product.getId());
+        dto.setName(product.getName());
+        dto.setPrice(product.getPrice());
 
-    ProductResponse productResponse = synchronousProduct.getProduct(productRequest);
-    Product product = productResponse.getProduct();
+        return dto;
+    }
 
-    ProductDTO dto = new ProductDTO();
-    dto.setId(product.getId());
-    dto.setName(product.getName());
-    dto.setPrice(product.getPrice());
-
-    return dto;
-}
     public List<ProductResponseDTO> listProducts(String keyword) throws InterruptedException {
         ProductListRequest request = ProductListRequest.newBuilder()
                 .setKeyword(keyword == null ? "" : keyword)
@@ -75,177 +74,101 @@ public ProductDTO getProductById(int productId) {
         }
         return result;
     }
+
     public UploadResponseDTO uploadProducts(List<ProductItemDTO> products) throws InterruptedException {
 
+        AtomicInteger result = new AtomicInteger();
         CountDownLatch latch = new CountDownLatch(1);
-        final int[] result = {0};
+        StreamObserver<Product> requestObserver = asyncStub.withDeadlineAfter(5, TimeUnit.SECONDS)
+                .uploadProducts(new StreamObserver<UploadSummary>() {
+                    @Override
+                    public void onNext(UploadSummary value) {
+                        log.info("Received from client streaming: {}", value.getCount());
+                        result.set(value.getCount());
+                    }
 
-        StreamObserver<UploadSummary> responseObserver = new StreamObserver<UploadSummary>() {
+                    @Override
+                    public void onError(Throwable t) {
+                        log.error("Error in client streaming call", t);
+                    }
 
-            @Override
-            public void onNext(UploadSummary summary) {
-                System.out.println("Server response count = " + summary.getCount());
-                result[0] = summary.getCount();
-            }
+                    @Override
+                    public void onCompleted() {
+                        log.info("Client streaming completed");
+                        log.info("======================--444444--=== " + result.get());
+                    }
+                });
+        // Send multiple messages to the server
+        for (ProductItemDTO dto : products) {
+            Product product = Product.newBuilder()
+                    .setId(dto.getId())
+                    .setName(dto.getName())
+                    .setPrice(dto.getPrice())
+                    .build();
 
-            @Override
-            public void onError(Throwable t) {
-                System.err.println("Upload failed: " + t.getMessage());
-                latch.countDown();
-            }
+            System.out.println("Sending product: " + dto.getName());
+            log.info("Sent client message: {}", dto.getName());
+            requestObserver.onNext(product);
+        }
+        log.info("======================----=== " + result.get());
+        requestObserver.onCompleted();
+        latch.await(2, TimeUnit.SECONDS);
+        return new UploadResponseDTO(result.get());
+    }
 
-            @Override
-            public void onCompleted() {
-                System.out.println("Upload completed");
-                latch.countDown();
-            }
-        };
+    public List<ProductResponseDTO> chatProducts(List<Long> ids) {
 
-        StreamObserver<Product> requestObserver = asyncStub.uploadProducts(responseObserver);
+        ManagedChannel channel = ManagedChannelBuilder
+                .forAddress("localhost", 9000)
+                .usePlaintext()
+                .build();
+
+        ProductServiceGrpc.ProductServiceStub stub =
+                ProductServiceGrpc.newStub(channel);
+
+        List<ProductResponseDTO> result = new ArrayList<>();
+        CountDownLatch latch = new CountDownLatch(1);
+
+        StreamObserver<ProductResponse> responseObserver =
+                new StreamObserver<ProductResponse>() {
+                    @Override
+                    public void onNext(ProductResponse value) {
+                        result.add(new ProductResponseDTO(value.getProduct().getId(), value.getProduct().getName(), value.getProduct().getPrice()));
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        latch.countDown();
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                        latch.countDown();
+                    }
+                };
+
+        StreamObserver<ProductRequest> requestObserver =
+                stub.chatProducts(responseObserver);
+
+        // gửi nhiều request
+        for (Long id : ids) {
+            requestObserver.onNext(
+                    ProductRequest.newBuilder().setId(id).build()
+            );
+        }
+
+        requestObserver.onCompleted();
 
         try {
-            for (ProductItemDTO dto : products) {
-
-                Product product = Product.newBuilder()
-                        .setId(dto.getId()) // ⚠️ bỏ nếu auto generate
-                        .setName(dto.getName())
-                        .setPrice(dto.getPrice())
-                        .build();
-
-                System.out.println("Sending product: " + dto.getName());
-
-                requestObserver.onNext(product);
-            }
-
-            requestObserver.onCompleted();
-
-        } catch (Exception e) {
-            requestObserver.onError(e);
-            throw e;
+            latch.await(); // đợi server trả hết
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
 
-        // ⚠️ tránh treo vô hạn
-        if (!latch.await(5, TimeUnit.SECONDS)) {
-            throw new RuntimeException("Timeout waiting for server response");
-        }
-
-        return new UploadResponseDTO(result[0]);
-    }
-//    public ChatResponseDTO chatProducts(List<Long> ids) throws InterruptedException {
-//        CountDownLatch latch = new CountDownLatch(1);
-//        List<ChatResponseDTO> responses = new ArrayList<>();
-//        Throwable[] error = {null};
-//
-//        // Mở stream 2 chiều
-//        StreamObserver<ProductRequest> requestObserver = asyncStub.chatProducts(
-//                new StreamObserver<ProductResponse>() {
-//
-//                    @Override
-//                    public void onNext(ProductResponse response) {
-//                        // Nhận response ngay khi server phản hồi từng request
-//                        responses.add(convertChatResponse(response));
-//                    }
-//
-//                    @Override
-//                    public void onError(Throwable t) {
-//                        error[0] = t;
-//                        latch.countDown();
-//                    }
-//
-//                    @Override
-//                    public void onCompleted() {
-//                        latch.countDown();
-//                    }
-//                });
-//
-//        // Gửi từng id lên — server phản hồi song song
-//        for (long id : ids) {
-//            requestObserver.onNext(
-//                    ProductRequest.newBuilder().setId(id).build()
-//            );
-//        }
-//
-//        requestObserver.onCompleted(); // Đóng chiều gửi
-//
-//        boolean completed = latch.await(10, TimeUnit.SECONDS);
-//        if (!completed) throw new RuntimeException("Bidirectional streaming timeout after 10s");
-//        if (error[0] != null) throw new RuntimeException("Chat error: " + error[0].getMessage());
-//
-//        return new ProductDTO.ChatResponse(responses);
-//    }
-public List<ProductResponseDTO> chatProducts(List<Long> ids) {
-
-    ManagedChannel channel = ManagedChannelBuilder
-            .forAddress("localhost", 9000)
-            .usePlaintext()
-            .build();
-
-    ProductServiceGrpc.ProductServiceStub stub =
-            ProductServiceGrpc.newStub(channel);
-
-    List<ProductResponseDTO> result = new ArrayList<>();
-    CountDownLatch latch = new CountDownLatch(1);
-
-    StreamObserver<ProductResponse> responseObserver =
-            new StreamObserver<ProductResponse>() {
-                @Override
-                public void onNext(ProductResponse value) {
-                    result.add(new ProductResponseDTO(value.getProduct().getId(), value.getProduct().getName(),value.getProduct().getPrice()));
-                }
-
-                @Override
-                public void onError(Throwable t) {
-                    latch.countDown();
-                }
-
-                @Override
-                public void onCompleted() {
-                    latch.countDown();
-                }
-            };
-
-    StreamObserver<ProductRequest> requestObserver =
-            stub.chatProducts(responseObserver);
-
-    // gửi nhiều request
-    for (Long id : ids) {
-        requestObserver.onNext(
-                ProductRequest.newBuilder().setId(id).build()
-        );
+        return result;
     }
 
-    requestObserver.onCompleted();
-
-    try {
-        latch.await(); // đợi server trả hết
-    } catch (InterruptedException e) {
-        throw new RuntimeException(e);
-    }
-
-    return result;
-}
     private ProductResponseDTO toDTO(Product p) {
         return new ProductResponseDTO(p.getId(), p.getName(), p.getPrice());
     }
-//    public ChatResponseDTO convertChatResponse(List<ProductResponse> grpcResponses) {
-//
-//        List<ProductItemDTO> products = grpcResponses.stream()
-//                .map(res -> {
-//                    Product p = res.getProduct();
-//
-//                    ProductItemDTO dto = new ProductItemDTO();
-//                    dto.setId(p.getId());
-//                    dto.setName(p.getName());
-//                    dto.setPrice(p.getPrice());
-//
-//                    return dto;
-//                })
-//                .toList();
-//
-//        ChatResponseDTO response = new ChatResponseDTO();
-//        response.setProducts(products);
-//        response.setTotal(products.size());
-//
-//        return response;
-//    }
 }
