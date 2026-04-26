@@ -59,7 +59,6 @@ public class ProductServerService extends ProductServiceGrpc.ProductServiceImplB
             private int count = 0;
             @Override
             public void onNext(Product product) {
-                log.info("Received client streaming request with message: {}", product);
                 ProductEntity entity = new ProductEntity();
                 entity.setId(Long.valueOf(product.getId()));
                 entity.setName(product.getName());
@@ -70,12 +69,10 @@ public class ProductServerService extends ProductServiceGrpc.ProductServiceImplB
             }
             @Override
             public void onError(Throwable throwable) {
-                log.error("eror-------------------");
+                log.error("uploadProducts client-streaming RPC failed");
             }
-
             @Override
             public void onCompleted() {
-                log.info("onCompleted ======================: {}"+ count);
                 UploadSummary summary = UploadSummary.newBuilder()
                                 .setCount(count).build();
                 responseObserver.onNext(summary);
@@ -84,54 +81,6 @@ public class ProductServerService extends ProductServiceGrpc.ProductServiceImplB
         };
     }
 
-    //    @Override
-//    public StreamObserver<Product> uploadProducts(StreamObserver<UploadSummary> responseObserver) {
-//
-//        return new StreamObserver<Product>() {
-//
-//            private int count = 0;
-//
-//            @Override
-//            public void onNext(Product product) {
-//                try {
-//                    System.out.println("Received product: {}"+ product);
-//
-//                    ProductEntity entity = new ProductEntity();
-//                    entity.setId(product.getId());
-//                    entity.setName(product.getName());
-//                    entity.setPrice(product.getPrice());
-//
-//                    productRepository.save(entity);
-//
-//                    count++;
-//                    System.out.println("Saved product successfully. Current count = {}"+ count);
-//
-//                } catch (Exception e) {
-//                    System.out.println("Error while saving product"+ e);
-//
-//                    // trả lỗi về client
-//                    responseObserver.onError(e);
-//                }
-//            }
-
-//            @Override
-//            public void onError(Throwable t) {
-//                System.out.println("Client stream error"+ t);
-//            }
-//
-//            @Override
-//            public void onCompleted() {
-//                System.out.println("Client completed sending. Total count = {}"+ count);
-//
-//                UploadSummary summary = UploadSummary.newBuilder()
-//                        .setCount(count)
-//                        .build();
-//
-//                responseObserver.onNext(summary);
-//                responseObserver.onCompleted();
-//            }
-//        };
-//    }
 @Override
 public StreamObserver<ProductRequest> chatProducts(StreamObserver<ProductResponse> responseObserver) {
     return new StreamObserver<ProductRequest>() {
@@ -151,7 +100,6 @@ public StreamObserver<ProductRequest> chatProducts(StreamObserver<ProductRespons
                 ProductResponse response = ProductResponse.newBuilder()
                         .setProduct(product)
                         .build();
-
                 // gửi lại cho client
                 responseObserver.onNext(response);
 

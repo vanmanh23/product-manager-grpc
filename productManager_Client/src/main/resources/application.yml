@@ -3,7 +3,6 @@ server:
 spring:
   application:
     name: local-grpc-client
-
 grpc:
   client:
     local-grpc-server:

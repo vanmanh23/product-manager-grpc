@@ -3,7 +3,6 @@ package com.beanannotation.Service;
 import com.beanannotation.*;
 import com.beanannotation.dto.request.ProductItemDTO;
 import com.beanannotation.dto.response.ProductDTO;
-import com.beanannotation.dto.response.ProductResponseDTO;
 import com.beanannotation.dto.response.UploadResponseDTO;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -41,12 +40,12 @@ public class ProductClientService {
         return dto;
     }
 
-    public List<ProductResponseDTO> listProducts(String keyword) throws InterruptedException {
+    public List<ProductDTO> listProducts(String keyword) throws InterruptedException {
         ProductListRequest request = ProductListRequest.newBuilder()
                 .setKeyword(keyword == null ? "" : keyword)
                 .build();
 
-        List<ProductResponseDTO> result = new ArrayList<>();
+        List<ProductDTO> result = new ArrayList<>();
         CountDownLatch latch = new CountDownLatch(1);
 
         asyncStub.listProducts(request, new StreamObserver<ProductListResponse>() {
@@ -83,7 +82,6 @@ public class ProductClientService {
                 .uploadProducts(new StreamObserver<UploadSummary>() {
                     @Override
                     public void onNext(UploadSummary value) {
-                        log.info("Received from client streaming: {}", value.getCount());
                         result.set(value.getCount());
                     }
 
@@ -95,7 +93,6 @@ public class ProductClientService {
                     @Override
                     public void onCompleted() {
                         log.info("Client streaming completed");
-                        log.info("======================--444444--=== " + result.get());
                     }
                 });
         // Send multiple messages to the server
@@ -105,35 +102,27 @@ public class ProductClientService {
                     .setName(dto.getName())
                     .setPrice(dto.getPrice())
                     .build();
-
-            System.out.println("Sending product: " + dto.getName());
-            log.info("Sent client message: {}", dto.getName());
             requestObserver.onNext(product);
         }
-        log.info("======================----=== " + result.get());
         requestObserver.onCompleted();
         latch.await(2, TimeUnit.SECONDS);
         return new UploadResponseDTO(result.get());
     }
 
-    public List<ProductResponseDTO> chatProducts(List<Long> ids) {
-
+    public List<ProductDTO> bidirectionalStreamingProducts(List<Long> ids) {
         ManagedChannel channel = ManagedChannelBuilder
                 .forAddress("localhost", 9000)
                 .usePlaintext()
                 .build();
-
         ProductServiceGrpc.ProductServiceStub stub =
                 ProductServiceGrpc.newStub(channel);
-
-        List<ProductResponseDTO> result = new ArrayList<>();
+        List<ProductDTO> result = new ArrayList<>();
         CountDownLatch latch = new CountDownLatch(1);
-
         StreamObserver<ProductResponse> responseObserver =
                 new StreamObserver<ProductResponse>() {
                     @Override
                     public void onNext(ProductResponse value) {
-                        result.add(new ProductResponseDTO(value.getProduct().getId(), value.getProduct().getName(), value.getProduct().getPrice()));
+                        result.add(new ProductDTO(value.getProduct().getId(), value.getProduct().getName(), value.getProduct().getPrice()));
                     }
 
                     @Override
@@ -156,19 +145,15 @@ public class ProductClientService {
                     ProductRequest.newBuilder().setId(id).build()
             );
         }
-
         requestObserver.onCompleted();
-
         try {
             latch.await(); // đợi server trả hết
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-
         return result;
     }
-
-    private ProductResponseDTO toDTO(Product p) {
-        return new ProductResponseDTO(p.getId(), p.getName(), p.getPrice());
+    private ProductDTO toDTO(Product p) {
+        return new ProductDTO(p.getId(), p.getName(), p.getPrice());
     }
 }
