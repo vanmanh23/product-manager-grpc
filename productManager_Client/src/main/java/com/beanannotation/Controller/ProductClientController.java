@@ -20,8 +20,8 @@ public class ProductClientController {
     }
 
     @GetMapping("/{id}")
-    public ProductDTO getProduct(@PathVariable String id) {
-        return productClientService.getProductById(Integer.parseInt(id));
+    public ResponseEntity<ProductDTO> getProduct(@PathVariable String id) {
+        return ResponseEntity.ok(productClientService.getProductById(Integer.parseInt(id)));
     }
 
     @GetMapping("")
