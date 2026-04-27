@@ -1,11 +1,9 @@
-package com.beanannotation.dto.request;
+package com.beanannotation.integration.dto.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.Size;
 

@@ -1,6 +1,6 @@
-package com.beanannotation.repository;
+package com.beanannotation.integration.repository;
 
-import com.beanannotation.entity.ProductEntityFake;
+import com.beanannotation.integration.entity.ProductEntityFake;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

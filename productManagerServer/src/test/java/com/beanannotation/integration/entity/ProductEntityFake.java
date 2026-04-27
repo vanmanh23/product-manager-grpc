@@ -1,4 +1,4 @@
-package com.beanannotation.entity;
+package com.beanannotation.integration.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

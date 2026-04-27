@@ -1,9 +1,10 @@
-package com.beanannotation.service;
+package com.beanannotation.unitTest.service;
 
 import com.beanannotation.*;
 import com.beanannotation.entity.ProductEntity;
 import com.beanannotation.exceptions.ProductNotFoundException;
 import com.beanannotation.repositories.ProductRepository;
+import com.beanannotation.service.ProductServerService;
 import io.grpc.stub.StreamObserver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,7 +14,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.*;
 
@@ -22,7 +22,7 @@ import static org.mockito.Mockito.*;
 
 
 @ExtendWith(MockitoExtension.class)
-public class ProductServerServiceTest {
+public class ProductServerServiceUnitTest {
     // Mock dependency
     @Mock
     private ProductRepository productRepository;

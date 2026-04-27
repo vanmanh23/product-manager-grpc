@@ -1,6 +1,5 @@
-package com.beanannotation.dto.response;
+package com.beanannotation.integration.dto.response;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
